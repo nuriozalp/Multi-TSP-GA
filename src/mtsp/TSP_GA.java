@@ -1,65 +1,47 @@
-/*
- * TSP_GA.java
- * Create a tour and evolve a solution
- */
 package mtsp;
+
+import java.util.Random;
 
 public class TSP_GA {
 
     public static void main(String[] args) {
+        int maxRegion = 1000;
 
-        // Create and add our cities
-        Task task = new Task(Utils.task_id++, 60, 200);
-        TaskManager.addTask(task);
-        Task city2 = new Task(Utils.task_id++, 180, 200);
-        TaskManager.addTask(city2);
-        Task city3 = new Task(Utils.task_id++, 80, 180);
-        TaskManager.addTask(city3);
-        Task city4 = new Task(Utils.task_id++, 140, 180);
-        TaskManager.addTask(city4);
-        Task city5 = new Task(Utils.task_id++, 20, 160);
-        TaskManager.addTask(city5);
-        Task city6 = new Task(Utils.task_id++, 100, 160);
-        TaskManager.addTask(city6);
-        Task city7 = new Task(Utils.task_id++, 200, 160);
-        TaskManager.addTask(city7);
-        Task city8 = new Task(Utils.task_id++, 140, 140);
-        TaskManager.addTask(city8);
-        Task city9 = new Task(Utils.task_id++, 40, 120);
-        TaskManager.addTask(city9);
-        Task city10 = new Task(Utils.task_id++, 100, 120);
-        TaskManager.addTask(city10);
-        Task city11 = new Task(Utils.task_id++, 180, 100);
-        TaskManager.addTask(city11);
-        Task city12 = new Task(Utils.task_id++, 60, 80);
-        TaskManager.addTask(city12);
-        Task city13 = new Task(Utils.task_id++, 120, 80);
-        TaskManager.addTask(city13);
-        Task city14 = new Task(Utils.task_id++, 180, 60);
-        TaskManager.addTask(city14);
-        Task city15 = new Task(Utils.task_id++, 20, 40);
-        TaskManager.addTask(city15);
-        Task city16 = new Task(Utils.task_id++, 100, 40);
-        TaskManager.addTask(city16);
-        Task city17 = new Task(Utils.task_id++, 200, 40);
-        TaskManager.addTask(city17);
-        Task city18 = new Task(Utils.task_id++, 20, 20);
-        TaskManager.addTask(city18);
-        Task city19 = new Task(Utils.task_id++, 60, 20);
-        TaskManager.addTask(city19);
-        Task city20 = new Task(Utils.task_id++, 160, 20);
-        TaskManager.addTask(city20);
-        System.out.println(TaskManager.numberOfTasks());
+        Random rn = new Random();
+        // Create and add our tasks
+        for (int i = 0; i < Utils.totalTask; i++) {
 
-        UAV uav1 = new UAV(Utils.uav_id++, 0, 0);
-        Utils.addUav(uav1);
+            Task task = new Task(Utils.taskId++, rn.nextInt(maxRegion), rn.nextInt(maxRegion),
+                    rn.nextInt(TaskType.values().length), rn.nextInt(Utils.maxTaskDurationTime));
+            TaskManager.addTask(task);
+        }
 
-        UAV uav2 = new UAV(Utils.uav_id++, 10, 10);
-        Utils.addUav(uav2);
+        for (int i = 0; i < Utils.totalTask; i++) {
+            Task task = TaskManager.getTask(i);
+            switch (task.type.getValue()) {
+                case 2:
 
-        UAV uav3 = new UAV(Utils.uav_id++, 50, 50);
-        Utils.addUav(uav3);
+                    Task temptask2 = new Task(Utils.taskId++, task.x, task.y, task.id, task.type, task.taskDurationTime);
+                    TaskManager.addTask(temptask2);
+                    break;
 
+                case 3:
+                    for (int k = 0; k < 2; k++) {
+                        Task temptask3 = new Task(Utils.taskId++, task.x, task.y, task.id, task.type);
+                        TaskManager.addTask(temptask3);
+                    }
+                    break;
+
+            }
+        }
+        System.out.println("numberOfTasks : " + TaskManager.numberOfTasks());
+
+        for (int i = 0; i < Utils.totalUAV; i++) {
+            // Create and add our cities
+            UAV uav = new UAV(Utils.uav_id++, rn.nextInt(maxRegion), rn.nextInt(maxRegion), rn.nextInt(UAVType.values().length));
+            Utils.addUav(uav);
+        }
+        System.out.println("numberOfUAVs: " + Utils.numberOfUAVs());
         // Initialize population
         //Population pop = new Population(50, true);
         Population pop = new Population(100, true);
@@ -67,15 +49,17 @@ public class TSP_GA {
 
         // Evolve population for 100 generations
         pop = MultiGA.evolvePopulation(pop);
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 1000; i++) {
             pop = MultiGA.evolvePopulation(pop);
         }
+
+        System.out.println(pop.individuals[0]);
 
         // Print final results
         System.out.println("Finished");
         //   System.out.println("Final distance: " + pop.getFittest().getDistance());
         System.out.println("Solution:");
-     //   System.out.println(pop.getFittest());
+        //   System.out.println(pop.getFittest());
         //  pop.tours[0].generateMultiIndividual();
     }
 }

@@ -1,4 +1,3 @@
-
 package mtsp;
 
 import java.util.ArrayList;
@@ -9,7 +8,7 @@ import java.util.Random;
 
 public class MultiChromosome {
 
-    // Holds our tasks
+    // Holds our tour of cities
     Map<Integer, ArrayList<Task>> multiChoromosome = new HashMap<Integer, ArrayList<Task>>();
 
     // Cache
@@ -23,31 +22,49 @@ public class MultiChromosome {
 
     public ArrayList<Integer> generateRandomDigit() {
         ArrayList<Integer> randomList = new ArrayList<Integer>();
-        Random rn = new Random();
-        int temp = 0;
-        int kalan = 0;
-        for (int i = 0; i < Utils.numberOfUAVs() - 1; i++) {
-            temp = rn.nextInt(TaskManager.numberOfTasks() - temp);
-            randomList.add(temp);
-            kalan += temp;
-        }
-        temp = TaskManager.numberOfTasks() - kalan;
-        randomList.add(temp);
+        do {
 
-        for (Integer randomList1 : randomList) {
-            // System.out.println("UAV city : " + randomList1);
-        }
+            Random rn = new Random();
+            int temp = 0;
+            int kalan = 0;
+            for (int i = 0; i < Utils.numberOfUAVs() - 1; i++) {
+                do {
+                    temp = rn.nextInt(TaskManager.numberOfTasks() - temp);
+                    if (Utils.maxTaskAssignment >= temp && temp > 2) {
+                        break;
+                    }
+                } while (true);
+
+                randomList.add(temp);
+                kalan += temp;
+            }
+            temp = TaskManager.numberOfTasks() - kalan;
+            if (temp < 0) {
+                temp = 0;
+            }
+            if (temp <= Utils.maxTaskAssignment) {
+                randomList.add(temp);
+                break;
+            } else {
+                randomList.clear();
+            }
+
+        } while (true);
+
         return randomList;
 
     }
 
     // Gets a city from the tour
-    public Task getTask(int taskPosition) {
+    public Task getTask(int tourPosition) {
         return null;
     }
 
-    public void setTask(int taskPosition, Task task) {
-         fitness = 0;
+    // Sets a city in a certain position within a tour
+    public void setTask(int tourPosition, Task city) {
+        // tour.set(tourPosition, city);
+        // If the tours been altered we need to reset the fitness and distance
+        fitness = 0;
         distance = 0;
     }
 
@@ -55,62 +72,143 @@ public class MultiChromosome {
     public double getFitness() {
         if (fitness == 0) {
             try {
-                 for (ArrayList<Task> taskList : multiChoromosome.values()) {
-                if (taskList != null) {
-                    for (int i = 0; i < taskList.size() - 1; i++) {
-                        fitness += taskList.get(i).distanceTo(taskList.get(i + 1));
+                for (int k = 0; k < multiChoromosome.keySet().size(); k++) {
+                    ArrayList<Task> taskList = multiChoromosome.get(k);
+                    if (taskList != null && taskList.size() > 0) {
+                        fitness += taskList.get(0).distanceTo(Utils.getUavList().get(k));
+
+                        for (int i = 0; i < taskList.size() - 1; i++) {
+                            fitness += taskList.get(i).distanceTo(taskList.get(i + 1));
+                        }
+                        fitness += taskList.get(taskList.size() - 1).distanceTo(taskList.get(0));
                     }
-                    fitness += taskList.get(taskList.size() - 1).distanceTo(taskList.get(0));
                 }
-            }
             } catch (Exception e) {
+                e.getStackTrace();
+
                 System.out.println(e.getMessage());
             }
-           
-       }
+
+        }
+        fitness =Math.log(fitness * calculateTotalTime(this));
         distance = fitness;
         return fitness;
     }
 
+    public double calculateTotalTime(MultiChromosome multichromosome) {
+        double result = 0;
+        for (int i = 0; i < Utils.totalUAV; i++) {
+            if (multichromosome.multiChoromosome.containsKey(i)) {
+                ArrayList<Task> getTaskList = multichromosome.multiChoromosome.get(i);
+                result += calculateUAVTotalTaskDurationTime(getTaskList, i);
+            }
+        }
+        return result;
+    }
+
+    public double calculateUAVTotalTaskDurationTime(ArrayList<Task> getTaskList, int uav) {
+
+        double result = 0;
+        if (!getTaskList.isEmpty()) {
+            result += getTaskList.get(0).calculateTimeBetweenUAVandTask(Utils.getUavList().get(uav));
+
+            for (int j = 0; j < getTaskList.size() - 1; j++) {
+                result += getTaskList.get(j).calculateTimeBetweenTask(getTaskList.get(j + 1), Utils.getUavList().get(uav));
+            }
+        }
+        return result;
+    }
+
     void generateMultiIndividual() {
-         ArrayList<Integer> generateRandomDigit = generateRandomDigit();//herbir ihaya atanacak task sayısı
+        // Loop through all our destination cities and add them to our tour
+        ArrayList<Integer> generateRandomDigit = generateRandomDigit();//herbir ihaya atanacak task sayısı
+
+        ArrayList<Task> remainTaskList = new ArrayList<Task>(TaskManager.taskList);
+
         Random rn = new Random();
+        int total = TaskManager.numberOfTasks();
+
         for (int uav = 0; uav < Utils.numberOfUAVs(); uav++) {
+            int maxITeration = Utils.maxITeration;
             ArrayList<Task> taskList = new ArrayList<Task>();
 
-            for (int i = 0; i < generateRandomDigit.get(uav); i++) {
-                do {
-                    Task task = TaskManager.getTask(rn.nextInt(TaskManager.numberOfTasks()));
+            int totalTaskForCurrentUAV = generateRandomDigit.get(uav);
 
-                    if (!isContain(task)) {
+            for (int i = 0; i < totalTaskForCurrentUAV; i++) {
+                do {
+                    if (remainTaskList.size() == 0) {
+                        break;
+                    }
+                    //  System.out.println("remainTaskList.type() : " + remainTaskList.type());
+
+                    int currentTaskId = 0;
+                    if (remainTaskList.size() > 1) {
+                        int taskIndex = rn.nextInt(remainTaskList.size());
+                        currentTaskId = remainTaskList.get(taskIndex).id;
+                    } else {
+                        currentTaskId = remainTaskList.get(0).id;
+                    }
+
+                    Task task = TaskManager.getTaskbyId(currentTaskId);
+
+                    if (!isTaskListContain(taskList, task)) {
                         taskList.add(task);
+                        remainTaskList.remove(task);
+                        total--;
+                        break;
+                    }
+                    if (maxITeration-- == 0) {
+                        break;
+                    }
+                    Integer maxAirTime = Utils.getUAVTypeAirtime().get(Utils.getUavList().get(uav).type);
+                    if (calculateUAVTotalTaskDurationTime(taskList, uav) > maxAirTime);
+                    {
                         break;
                     }
 
                 } while (true);
+                maxITeration = Utils.maxITeration;
+            }
 
-                multiChoromosome.put(uav, taskList);
+            // total -= taskList.type();
+            multiChoromosome.put(uav, taskList);
+            if (remainTaskList.size() == 0) {
+                break;
             }
         }
+
     }
 
     public void display() {
 
-        for (ArrayList<Task> taskList : multiChoromosome.values()) {
-            for (Task task : taskList) {
-                System.out.print(task.x + " : " + task.y + " / ");
+        for (ArrayList<Task> cityList : multiChoromosome.values()) {
+            for (Task city : cityList) {
+                System.out.print(city.x + " : " + city.y + " / ");
             }
             System.out.println("--------------");
         }
 
     }
 
-    public boolean isContain(Task _task ){
+    public boolean isTaskListContain(ArrayList<Task> taskList, Task _task) {
         boolean result = false;
 
-        for (ArrayList<Task> cityList : multiChoromosome.values()) {
-            for (Task city : cityList) {
-                if (city != null && _task != null && city.equals(_task)) {
+        for (Task task : taskList) {
+            if (task != null && _task != null && task.controlParentequals(_task)) {
+                result = true;
+                break;
+            }
+        }
+
+        return result;
+    }
+
+    public boolean isContain(Task _task) {
+        boolean result = false;
+
+        for (ArrayList<Task> taskList : multiChoromosome.values()) {
+            for (Task task : taskList) {
+                if (task != null && _task != null && task.equals(_task)) {
                     result = true;
                     break;
                 }
@@ -118,6 +216,34 @@ public class MultiChromosome {
         }
 
         return result;
+    }
+
+    @Override
+    public String toString() {
+        String temp = "Total UAV Size :" + multiChoromosome.keySet().size() + "\n";
+        int total = 0;
+        for (int i = 0; i < multiChoromosome.keySet().size(); i++) {
+            ArrayList<Task> taskList = multiChoromosome.get(i);
+            if (taskList == null) {
+                temp += "UAV-" + Utils.getUavList().get(i).type.name() + "- " + i + " : \n";
+            } else {
+
+                temp += "UAV-" + Utils.getUavList().get(i).type.name() + "- " + i + " : ";
+                for (Task task : taskList) {
+                    total++;
+                    temp += task.toString();
+                }
+                temp += " total airTime :" + calculateUAVTotalTaskDurationTime(taskList, i) + "\n";;
+            }
+        }
+        System.out.println("total : " + total);
+        System.out.println("numberOfTasks : " + TaskManager.numberOfTasks());
+        return temp; //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return this.getFitness() == ((MultiChromosome) obj).getFitness();
     }
 
 }

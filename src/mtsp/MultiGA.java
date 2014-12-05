@@ -11,7 +11,7 @@ public class MultiGA {
 
     /* GA parameters */
     private static final double mutationRate = 0.015;
-    private static final int tournamentSize = 5;
+    private static final int tournamentSize = 3;
     private static final boolean elitism = true;
     private static Random rn = new Random();
 
@@ -25,7 +25,7 @@ public class MultiGA {
 
             newPopulation.individuals[0] = pop.getFittest();
             elitismOffset = 1;
-            System.out.println("pop.getFittest() : " + pop.getFittest().getFitness());
+            System.out.println("best Fitness : " + pop.getFittest().getFitness());
         }
 
         // Crossover population
@@ -50,19 +50,33 @@ public class MultiGA {
                     MultiChromosome child = crossover(parent);
                     child.getFitness();
                     if (child.getFitness() < 1) {
-                        System.out.println("child.getFitness() : " + child.getFitness());
+                        //                        System.out.println("child.getFitness() : " + child.getFitness());
+                    } else {
+                        // if(!isPopulationContains(child, newPopulation))
+                        reorder2Opt(child);
+                        newPopulation.individuals[i] = child;
                     }
-                    newPopulation.individuals[i] = child;
                 }
             }
         }
 
         // Mutate the new population a bit to add some new genetic material
         for (int i = elitismOffset; i < newPopulation.populationSize(); i++) {
-            mutate(newPopulation.individuals[i]);
+            if (newPopulation.individuals[i].multiChoromosome.values().size() > 0) {
+                mutate(newPopulation.individuals[i]);
+            }
         }
 
         return newPopulation;
+    }
+
+    public static boolean isPopulationContains(MultiChromosome child, Population newPopulation) {
+        for (MultiChromosome multiChromosome : newPopulation.individuals) {
+            if (multiChromosome.multiChoromosome.size() > 0 && !multiChromosome.equals(child)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Applies crossover to a set of parents and creates offspring
@@ -100,12 +114,28 @@ public class MultiGA {
         if (parent1 == null || parent2 == null) {
             System.out.println("null");
         }
+        int parent1size = parent1.size();
+        int parent2size = parent2.size();
         if (parent1 != null && parent2 != null) {
             //System.out.println("parent1Id :" + parent1.size() + " parent2Id :" + parent2.size());
+            if (parent1size > Utils.maxTaskAssignment - 2) {
+                parent1size -= 2;
+            }
+            if (parent2size > Utils.maxTaskAssignment - 2) {
+                parent2size -= 2;
+            }
+            int split1 = (int) rn.nextDouble() * parent1size;
+            int split2 = (int) rn.nextDouble() * parent2size;
+            // System.out.println("split1 :" + split1 + " split2 :" + split2);
 
-            int split1 = rn.nextInt(parent1.size());
-            int split2 = rn.nextInt(parent2.size());
-
+            do {
+                if (((parent2size - split2) + split1) <= Utils.maxTaskAssignment
+                        && ((parent1size - split1) + split2) <= Utils.maxTaskAssignment) {
+                    break;
+                }
+                split1 = (int) rn.nextDouble() * parent1size;
+                split2 = (int) rn.nextDouble() * parent2size;
+            } while (true);
             for (int i = 0; i < Utils.numberOfUAVs(); i++) {
                 if (parent1Id == i) {
                     ArrayList<Task> newCityList = new ArrayList<Task>();
@@ -136,7 +166,7 @@ public class MultiGA {
             }
         }
         if (newChromosome.getFitness() < 1) {
-            System.out.println("child.getFitness() : " + newChromosome.getFitness());
+            // System.out.println("child.getFitness() : " + newChromosome.getFitness());
         }
         return newChromosome;
     }
@@ -145,8 +175,10 @@ public class MultiGA {
     private static void mutate(MultiChromosome multiChromosome) {
         // Loop through tour cities
 
-        int randomChrom = rn.nextInt(Utils.numberOfUAVs());
-        if (multiChromosome.multiChoromosome.get(randomChrom) != null) {
+        int randomChrom = rn.nextInt(Utils.numberOfUAVs() - 1) + 1;
+
+        if (multiChromosome.multiChoromosome.containsKey(randomChrom)
+                && multiChromosome.multiChoromosome.get(randomChrom) != null) {
             ArrayList<Task> appliedChoromosome = multiChromosome.multiChoromosome.get(randomChrom);
 
             for (int tourPos1 = 0; tourPos1 < appliedChoromosome.size(); tourPos1++) {
@@ -180,5 +212,46 @@ public class MultiGA {
         // Get the fittest tour
         MultiChromosome fittest = tournament.getFittest();//seçilenlerin arasındaki en iyi olanını seç
         return fittest;
+    }
+
+    /**
+     * child optimization
+     */
+    public static void reorder2Opt(MultiChromosome multiChromosome) {
+        boolean done = false;
+        for (ArrayList<Task> tour : multiChromosome.multiChoromosome.values()) {
+            int numOfTasks = tour.size();
+            for (int k = 0; k < numOfTasks && !done; k++) {
+                done = true;
+                for (int i = 0; i < numOfTasks; i++) {
+                    for (int j = i + 2; j < numOfTasks; j++) {
+                        if (tour.get(i).distanceTo(tour.get(((i + 1) % numOfTasks)))
+                                + tour.get(j).distanceTo(tour.get(((j + 1) % numOfTasks)))
+                                > tour.get(i).distanceTo(tour.get(j))
+                                + tour.get(((i + 1) % numOfTasks)).distanceTo(tour.get(((j + 1) % numOfTasks)))) {
+                            Task tmp = tour.get(((i + 1) % numOfTasks));
+                            tour.set((i + 1) % numOfTasks, tour.get(j));
+                            tour.set(j, tmp);
+// tsp_ga.onNewTourReady(tour);
+                            exchange(tour, i + 2, j - 1);
+                            done = false;
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+
+    private static void exchange(ArrayList<Task> tasks, int from, int To) {
+        if (from >= To || from >= tasks.size() || To < 0) {
+            return;
+        }
+        for (; from < To; To--) {
+            Task tmp = tasks.get(from);
+            tasks.set(from, tasks.get(To));
+            tasks.set(To, tmp);
+            from++;
+        }
     }
 }
